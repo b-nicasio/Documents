@@ -15,8 +15,6 @@ export ANDROID_HOME=$HOME/android-sdk
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 
-
-
 ## Errors
 
 Error: ENOSPC: System limit for number of file watchers reached
@@ -30,20 +28,18 @@ export ANDROID_HOME=$HOME/android-sdk
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 
+problems with react
 
+npm install react-native@0.33.1
+npm install react-native-cli@1.2.0
 
 ## Notes
-
 
 The branch should always be masterl
 
 
 
-
-
-#
-
-# Serves KONEKSI WebApp
+# Nginx for KONEKSI WebApp
 server {
         listen 3007;
 
@@ -72,3 +68,10 @@ server {
         }
 }
 
+# GBH website
+
+## Errors
+WP-admin css not loading properly
+solution:
+Add this to wp-config.php this concatenates all dependencies on the url
+define( 'CONCATENATE_SCRIPTS', false ); 
