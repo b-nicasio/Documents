@@ -110,3 +110,10 @@ WP-admin css not loading properly
 solution:
 Add this to wp-config.php this concatenates all dependencies on the url
 define( 'CONCATENATE_SCRIPTS', false ); 
+
+options-ssl-nginx.conf" failed (2: No such file or directory)
+Solution:
+
+
+Fixing 'sudo:unable to resolve host" Error in Linux
+Add host to /etc/hosts
