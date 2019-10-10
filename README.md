@@ -114,6 +114,19 @@ define( 'CONCATENATE_SCRIPTS', false );
 options-ssl-nginx.conf" failed (2: No such file or directory)
 Solution:
 
-
 Fixing 'sudo:unable to resolve host" Error in Linux
 Add host to /etc/hosts
+
+# General errors
+
+## Docker swarm
+the docker stack is not functioning or provisioning the containers.
+
+```sh
+*docker service ls* 
+*docker node ls*
+``` 
+These are usefull commands here to check the services.
+
+Reload the docker deamon and check the node is running.
+
