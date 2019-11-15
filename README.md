@@ -15,8 +15,6 @@ export ANDROID_HOME=$HOME/android-sdk
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 
-<<<<<<< HEAD
-=======
 ## Better version of the installation
 
 wget http://dl.google.com/android/android-sdk_r24.4.1-linux.tgz
@@ -49,7 +47,6 @@ cd /opt/android-sdk-linux/tools
 
 
 
->>>>>>> 7e439eac16839517b2e71e946119fd01e00f239e
 ## Errors
 
 Error: ENOSPC: System limit for number of file watchers reached
@@ -223,4 +220,16 @@ platform :ios do
     )
   end
 end
+# General errors
+
+## Docker swarm
+the docker stack is not functioning or provisioning the containers.
+
+```sh
+*docker service ls* 
+*docker node ls*
+``` 
+These are usefull commands here to check the services.
+
+Reload the docker deamon and check the node is running.
 
