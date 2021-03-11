@@ -1,0 +1,85 @@
+image: node:10
+
+before_script:
+  - yarn install
+
+cache:
+  paths:
+    - node_modules/
+
+stages:
+  - test
+  - build
+  - deploy
+
+lint:
+  stage: test
+  script:
+    - yarn lint
+  except:
+    - dev
+    - master
+  tags:
+    - docker
+
+build:
+  stage: build
+  script:
+    - yarn build
+  except:
+    - dev
+    - master
+  tags:
+    - docker
+
+deploy-stage:
+  stage: deploy
+  before_script:
+    - echo "Deploying to stage envinronment..."
+  script:
+    - |
+      cd /srv/deployment/template/stage
+      ansible-playbook api.yml -t deploy -e version=dev
+  environment:
+    name: stage
+    url: https://api.template.gbhlabs.net
+  only:
+    - dev
+  tags:
+    - ansible
+
+deploy-uat:
+  stage: deploy
+  before_script:
+    - echo "Deploying to uat envinronment..."
+  script:
+    - |
+      cd /srv/deployment/template/uat
+      ansible-playbook api.yml -t deploy -e version=dev
+  environment:
+    name: uat
+    url: https://api.uat.template.com
+  only:
+    - dev
+  when: manual
+  allow_failure: true
+  tags:
+    - ansible
+
+deploy-prod:
+  stage: deploy
+  before_script:
+    - echo "Deploying to prod envinronment..."
+  script:
+    - |
+      cd /srv/deployment/template/prod
+      ansible-playbook api.yml -t deploy -e version=master
+  environment:
+    name: prod
+    url: https://api.template.com
+  only:
+    - master
+  when: manual
+  allow_failure: true
+  tags:
+    - ansible

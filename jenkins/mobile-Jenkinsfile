@@ -1,0 +1,203 @@
+def TIMESTAMP = Calendar.getInstance().getTime().format("YYYYMMdd-hhmm")
+
+pipeline {
+
+  agent none
+
+  options {
+    disableConcurrentBuilds()
+    gitLabConnection("gbh-deploy")
+    gitlabBuilds(
+      builds: [
+        "android-build",
+        "ios-build",
+        "validation"
+      ]
+    )
+    parallelsAlwaysFailFast()
+  }
+
+  environment {
+    ANDROID_HOME = "/home/ubuntu/android-sdk"
+    IOS_REPO = "/Users/administrator/Documents/template/mobile-app"
+    ANDROID_REPO = "/srv/template/mobile-app"
+    ROOT_REPO = "/srv/template"
+    S3_REPO = "s3://gbh-mobile/template"
+    S3_URL = "https:gbh-mobile.s3-us-west-2.amazonaws.com/template"
+    APP_PATH = "${IOS_REPO}/ios/template"
+    VERSION = "2.0.8"
+    API_BRANCH = "dev"
+    LEGACY_BRANCH = "dev"
+    KANON_TOKEN= credentials('kanon-token')
+  }
+
+  triggers {
+    gitlab(
+      triggerOnPush: false,
+      triggerOnMergeRequest: true,
+      skipWorkInProgressMergeRequest: true,
+      branchFilterType: "All",
+      addCiMessage: true,
+    )
+  }
+
+
+  stages{
+    stage ("get-jira-id") {
+      agent {
+        label "master"
+      }
+      steps{
+        script {
+          JIRA_ID = getTicketIdFromBranchName(env.GIT_BRANCH);
+        }
+      }
+    }
+    stage ("mobile-build") {
+      parallel {
+        stage("android-build") {
+          agent {
+            label "mobile"
+          }
+          steps{
+            sh(
+              label: "Setting android environment",
+              script: """
+                cd ${ANDROID_REPO}
+                git checkout .
+                git fetch
+                git clean -f
+                git checkout ${GIT_BRANCH}
+                git pull origin ${GIT_BRANCH}
+                yarn install
+                ./set-ip.sh
+                mkdir -p android/app/src/main/assets/
+                mkdir -p android/app/src/main/res/
+                npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+                rm -rf ./android/app/src/main/res/drawable-*
+                rm -rf ./android/app/src/main/res/raw
+              """
+            )
+            sh(
+              label: "Building APK",
+              script: """
+                cd ${ANDROID_REPO}/android
+                ./gradlew assembleRelease --max-workers 4
+                cd ${ANDROID_REPO}/android/app/build/outputs/apk/release
+                mv app-release.apk template-${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.apk
+              """
+            )
+            sh(
+              label: "Uploading to S3",
+              script: """
+                cd ${ANDROID_REPO}/android/app/build/outputs/apk/release
+                aws s3 cp template-${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.apk ${S3_REPO}/android/${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.apk --acl public-read
+                rm *.apk
+              """
+            )
+          }
+          post {
+            failure {
+              updateGitlabCommitStatus name: "android-build", state: "failed"
+            }
+            success {
+              updateGitlabCommitStatus name: "android-build", state: "success"
+            }
+          }
+        }
+
+        stage("iOS-build") {
+          agent {
+            label "mac-node"
+          }
+          steps {
+            script {
+              PLIST_NAME = "${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.plist"
+            }
+            sh(
+              label: "Setting up iOS environment",
+              script: """
+                cd ${IOS_REPO}
+                git checkout .
+                git fetch
+                git clean -f
+                git checkout ${GIT_BRANCH}
+                git pull origin ${GIT_BRANCH}
+                ./set-ip.sh
+                yarn install
+                npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
+                cd ios
+                pod repo update
+                pod install --repo-update
+                pod update Firebase/Crashlytics
+              """
+            )
+            sh(
+              label: "Building iOS IPA",
+              script: """
+                cd ${IOS_REPO}/ios
+                fastlane pipeline
+                cp template*.ipa ${VERSION}.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.ipa
+                cat app-ipa-template.plist.template | sed -e \"s/IPA_NAME/${VERSION}.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}/\" > ${PLIST_NAME}
+                cat index.html | sed -e \"s/ITUNES_LINK/${PLIST_NAME}/\" > index.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.html
+              """
+            )
+            sh(
+              label: "Uploading to S3",
+              script: """
+                cd ${IOS_REPO}/ios
+                aws s3 cp ${VERSION}.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.ipa ${S3_REPO}/ios/${VERSION}.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.ipa --acl public-read
+                aws s3 cp index.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.html ${S3_REPO}/ios/index.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.html --acl public-read
+                aws s3 cp ${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.plist ${S3_REPO}/ios/${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.plist --acl public-read
+                rm *.ipa
+              """
+            )
+          }
+          post {
+            failure {
+              updateGitlabCommitStatus name: "iOS-build", state: "failed"
+            }
+            success {
+              updateGitlabCommitStatus name: "iOS-build", state: "success"
+            }
+          }
+        }
+      }
+    }
+
+    stage("validation") {
+      agent {
+        label 'mobile'
+      }
+      steps {
+        sh(
+          label: "Posting ReviewApp data to Kanon...",
+          script: """
+            curl \
+              -H "Content-Type: application/json" \
+              -H "authToken: ${KANON_TOKEN}" \
+              -d '{"branch": "${GIT_BRANCH}", "apiURL": "https://there-is-no-api.net", "jiraIssueKey": "${JIRA_ID}", "build": "${BUILD_NUMBER}", "iosAppLink": "${S3_URL}/ios/index.${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.html", "androidAppLink": "${S3_URL}/android/${TIMESTAMP}.${BUILD_NUMBER}.${JIRA_ID}.apk", "expirationTime": "1"}' \
+              -X POST \
+              https://kanon-api.gbhlabs.net/api/reviewapps
+          """
+        )
+        echo "URL is: https:kanon.gbhlabs.net"
+        sh(
+          label: "Posting ReviewApp status to Kanon...",
+          script: """
+            curl \
+              -H "Content-Type: application/json" \
+              -H "authToken: ${KANON_TOKEN}" \
+              -X POST \
+              https://kanon-api.gbhlabs.net/api/reviewapps/deactivation?build=${BUILD_NUMBER}\\&branch=${GIT_BRANCH}
+          """
+        )
+      }
+    }
+  }
+}
+
+
+def getTicketIdFromBranchName(String branchName) {
+ return branchName.findAll(/(GRN-[0-9]+)/)[0];
+}

@@ -1,0 +1,101 @@
+# Fastlane example
+fastlane_version "2.115.0"
+
+default_platform(:ios)
+
+platform :ios do
+  lane :bump do |options|
+    increment_version_number(version_number: options[:version])
+    increment_build_number(build_number: options[:build])
+  end
+
+  private_lane :match_stag do |options|
+    match(
+      type: "adhoc",
+      app_identifier: "com.gcs.prometheus.sdp.stag",
+      username: options[:username],
+      readonly: !options[:writable]
+    )
+  end
+
+  private_lane :match_others do |options|
+    match(
+      type: "development",
+      app_identifier: [
+        "com.gcs.prometheus.sdp.mock",
+        "com.gcs.prometheus.sdp.devt"
+      ],
+      username: options[:username],
+      readonly: !options[:writable]
+    )
+  end
+
+  lane :certificates do |options|
+    match_others(username: options[:username], writable: options[:writable])
+    match_stag(username: options[:username], writable: options[:writable])
+  end
+
+  lane :build_mock do |options|
+    match_others
+    build_app(
+      scheme: "prometheus-mock",
+      configuration: "MockRelease",
+      export_method: "development"
+    )
+  end
+
+  lane :deploy_mock do |options|
+    build_mock
+    crashlytics(
+      api_token: "1222b6a0c933aee641154a066ae9daaa93d7d2d8",
+      build_secret: "50f2993fc5583f989a3bef9d47f0cbddf4ff86cf7c3c9388c99b6019191e7e24"
+    )
+  end
+
+  lane :build_stag do |options|
+    match_stag
+    build_app(
+      scheme: "prometheus-stag",
+      configuration: "StagRelease",
+      export_method: "ad-hoc"
+    )
+  end
+
+  lane :deploy_stag do |options|
+    build_stag
+    crashlytics(
+      api_token: "1222b6a0c933aee641154a066ae9daaa93d7d2d8",
+      build_secret: "50f2993fc5583f989a3bef9d47f0cbddf4ff86cf7c3c9388c99b6019191e7e24"
+    )
+  end
+
+    lane :pipeline_build do |options|
+    #produce(
+    #  app_identifier: "com.gcs.prometheus.sdp",
+    #  username: "devs@gbh.com.do",
+    #  team_id: "HLH44XH7ZG",
+    #  app_name: 'prometheus.{JIRA_ID}',
+    #  itc_team_id: '117714939'
+    #)
+    match(
+      type: "adhoc",
+      app_identifier: "com.gcs.prometheus.sdp",
+      username: "devs@gbh.com.do",
+      team_id: "HLH44XH7ZG",
+      readonly: options[:writable]
+    )
+  end
+
+  lane :pipeline do |options|
+    pipeline_build
+    update_app_identifier(
+      xcodeproj: "prometheus.xcodeproj",
+      plist_path: "prometheus/Info.plist",
+      app_identifier: "com.gcs.prometheus.sdp.{JIRA_ID}",
+    )
+    build_app(
+      scheme: "prometheus-stag",
+      configuration: "StagRelease",
+    )
+  end
+end
