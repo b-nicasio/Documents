@@ -4,12 +4,12 @@ This is a documentation of all the errors and findings that might be usefull on 
 # General errors
 
 ## WP-admin css not loading properly
-# solution:
+### solution:
 Add this to wp-config.php this concatenates all dependencies on the url
 define( 'CONCATENATE_SCRIPTS', false );
 
 ## options-ssl-nginx.conf" failed (2: No such file or directory)
-# Solution:
+### Solution:
 Check the nginx configuration on sites-enabled
 
 # Usefull tools
