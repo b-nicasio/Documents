@@ -5,9 +5,9 @@ git add .
 git status
 
 DATE=$(date)
-echo "\n-------------"
+echo "-------------"
 echo "commit message: Changes made on ${DATE}"
-echo "-------------\n"
+echo "-------------"
 
 git commit -m "Changes made on ${DATE}"
 
