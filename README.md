@@ -16,3 +16,9 @@ Check the nginx configuration on sites-enabled
 
 ## Find all GB on the directory specified
 du -h -a /dir | grep "[0-9]G\b"
+
+## Create a CSV of users on AWS account
+```
+aws iam list-users --profile GBH >> users.json
+```
+http://convertcsv.com/json-to-csv.htm
