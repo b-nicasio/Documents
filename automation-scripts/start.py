@@ -19,32 +19,31 @@ def lambda_handler(event, context):
         }
     ]
 
-    # Search all the instances which contains scheduled filter 
+    # Search all the instances which contains scheduled filter
     instances = ec2.instances.filter(Filters=filters)
 
-    startInstances = []   
+    startInstances = []
 
     # Locate all instances that are tagged to start.
     for instance in instances:
-            
+
         for tag in instance.tags:
 
             if tag['Key'] == 'ScheduleStart':
 
                 if tag['Value'] == current_time:
 
-                  startInstances.append(instance.id)
+                    startInstances.append(instance.id)
 
                 pass
 
             pass
 
         pass
-    
-    
-    # Start all instances tagged to start.
+
+    # shut down all instances tagged to stop.
     if len(startInstances) > 0:
         # perform the start
         start = ec2.instances.filter(InstanceIds=startInstances).start()
-        print start
+        print(start)
     pass
